@@ -1,5 +1,5 @@
 const App = require('./src/app')
-const ua = require('./src/ua/handler')
+const ua = require('./src/ua/cfgstore')
 
 server = new App()
 
