@@ -1,4 +1,5 @@
 const App = require('./src/app')
+const ua = require('./src/ua/handler')
 
 server = new App()
 
@@ -7,4 +8,21 @@ server.init(process.env.PORT || 9000, () => {
     // mongodb.init()
     // redis.init()
     // mqtt.init()
+    (async function(){
+        ua.RunSavedConfiguration()
+    })()
 })
+
+process.on('exit', function (){
+   console.log('Saving All Configuration');
+    ua.SaveUAConfiguration();
+});
+
+process.on("SIGINT", function(){
+    console.log("You Pressed CTRL+C");
+    (async function(err){
+        process.exit();
+    })();
+});
+
+

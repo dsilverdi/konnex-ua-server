@@ -1,18 +1,10 @@
-const uaserver = require('./ua')
+const fs = require('fs')
 const opcua = require('node-opcua')
+const mqtt = require('mqtt')
 
 let ServerList = []
 
 async function CreateNewServer(payload) {
-    // const svc = new uaserver.UAServer(payload.id, payload.port, payload.productname, payload.buildnumber)
-    // console.log(svc)
-    
-    // await svc.Init()
-
-    // post_initialize(svc.server)
-
-    // await svc.StartServer()
-   
     const server = new opcua.OPCUAServer({
         port: payload.port, // the port of the listening socket of the servery
         resourcePath: "/ua/server",
@@ -24,17 +16,31 @@ async function CreateNewServer(payload) {
     });
 
     await server.initialize()
-    
-    post_initialize(server)
-
+    construct_address(server)
     await server.start()
 
     ServerList.push({
         server_object : server,
         server_id : payload.id,
+        server_port: payload.port
     })
 
     return server 
+}
+
+function construct_address(server) {
+    const addressSpace = server.engine.addressSpace;
+    const namespace = addressSpace.getOwnNamespace();
+
+    namespace.addObject({
+        organizedBy: addressSpace.rootFolder.objects,
+        browseName: 'mqttConnect'
+    });
+
+    namespace.addObject({
+        organizedBy: addressSpace.rootFolder.objects,
+        browseName: 'modbusConnect'
+    });
 }
 
 function GetServerList(){
@@ -55,6 +61,67 @@ function AddVariable(server, payload){
     console.log(payload)
 }
 
+async function AddMqttVariable(server, payload){
+    const addressSpace = server.engine.addressSpace
+    const namespace = addressSpace.getOwnNamespace();
+
+    const objectsFolder = addressSpace.rootFolder.objects;
+
+    const device  = namespace.addFolder(objectsFolder,{ browseName: payload.deviceName});
+
+    var VALUE = 0.1;
+
+    // const config = {
+    //     host : 'broker.emqx.io',
+    //     port : '1883',
+    //     topic : '/konnex/mqtt/test'
+    // }
+
+    (()=>{
+        const host = payload.host
+        const port = payload.port
+        const clientId = `konnex_${Math.random().toString(16).slice(3)}`
+    
+        const connectUrl = `mqtt://${host}:${port}`
+        
+        try{
+            const client = mqtt.connect(connectUrl, {
+                clientId,
+                clean: true,
+                connectTimeout: 4000,
+                username: 'mqtt',
+                password: 'public',
+                keepalive: 1,
+                clean: false,
+                reconnectPeriod: 1000 * 1
+            })
+        
+            const topic = payload.topic
+            client.on('connect', () => {
+                // console.log('Connected')            
+                client.subscribe([topic], () => {
+                })        
+            })
+        
+            client.on('message', (topic, payload) => {
+                VALUE = parseFloat(payload.toString())
+            })
+        }catch(err){
+            console.log(err)
+        }
+        
+    })()
+
+    // mqtt.AddMqttVariable(config, VALUE)
+
+    namespace.addVariable({
+        componentOf: device,
+        browseName: payload.browseName,
+        dataType: payload.dataType,
+        value: {  get: function () { return new opcua.Variant({dataType: opcua.DataType.Double, value: VALUE }); } }
+    })
+}
+
 function AddObject(server, payload) {
     const addressSpace = server.engine.addressSpace;
     const namespace = addressSpace.getOwnNamespace();
@@ -65,87 +132,89 @@ function AddObject(server, payload) {
     });
 }
 
-function post_initialize(server) {
-    function construct_my_address_space(server) {
-    
-        const addressSpace = server.engine.addressSpace;
-        const namespace = addressSpace.getOwnNamespace();
+function SaveUAConfiguration(){
+    ServerList.map((server)=>{
+        handleSaveConfiguration(server.server_object, server.server_id, server.server_port)
+    })    
+}//     if (error) {
+//       console.error(error)
+//     }
+//   })
+
+function handleSaveConfiguration(server, id, port){
+    const addressSpace = server.engine.addressSpace;
+    const namespace = addressSpace.getOwnNamespace();
+
+    let xml = namespace.toNodeset2XML();
+    // console.log(xml)
+
+    xml = xml.replace(/<[//]{0,1}(Models|\/Models)[^><]*>/g,"")
+    xml = xml.replace(/<[//]{0,1}(Model|\/Model)[^><]*>/g,"")
+    xml = xml.replace(/<[//]{0,1}(RequiredModel|\/RequiredModel)[^><]*>/g,"")
+
+    fs.writeFileSync(`./tmp/c_${port}_${id}.xml`, xml, function (err) {
+        if (err) throw err;
+    });
+}
+
+function RunSavedConfiguration(){
+    let date = new Date()
+    console.log(date)
+    fs.readdirSync('./tmp/').forEach(async (file) => {
+        config = file.split('_')
+        port = config[1]
+        id = config[2].substring(0,config[2].length-4)
         
-        // declare a new object
-        const device = namespace.addObject({
-            organizedBy: addressSpace.rootFolder.objects,
-            browseName: "MyDevice"
-        });
-    
-        // add some variables
-        // add a variable named MyVariable1 to the newly created folder "MyDevice"
-        let variable1 = 1;
         
-        // emulate variable1 changing every 500 ms
-        setInterval(function(){  variable1+=1; }, 500);
+        await handleRunConfiguration('./tmp/'+file, id, port)
+    });
+}
+
+async function handleRunConfiguration(file, id, port){
+   
+    //opcua.generateAddressSpace()
+    try{
+        var server_options = {
+            port: parseInt(port),
+            resourcePath: "/ua/server",
+            buildInfo: {
+                buildDate: new Date(),
+            },
+            nodeset_filename: [
+                opcua.nodesets.standard,
+                file,
+            ],
+            /*  other server options here */
+        };
+               
+
+        const server = new opcua.OPCUAServer(server_options);
         
-        namespace.addVariable({
-            componentOf: device,
-            browseName: "MyVariable1",
-            dataType: "Double",
-            value: {
-                get: function () {
-                    return new opcua.Variant({dataType: opcua.DataType.Double, value: variable1 });
-                }
-            }
-        });
-        
-        // add a variable named MyVariable2 to the newly created folder "MyDevice"
-        let variable2 = 10.0;
-        
-        namespace.addVariable({
-        
-            componentOf: device,
-        
-            nodeId: "ns=1;b=1020FFAA", // some opaque NodeId in namespace 4
-        
-            browseName: "MyVariable2",
-        
-            dataType: "Double",    
-        
-            value: {
-                get: function () {
-                    return new opcua.Variant({dataType: opcua.DataType.Double, value: variable2 });
-                },
-                set: function (variant) {
-                    variable2 = parseFloat(variant.value);
-                    return opcua.StatusCodes.Good;
-                }
-            }
-        });
-        const os = require("os");
-        /**
-         * returns the percentage of free memory on the running machine
-         * @return {double}
-         */
-        function available_memory() {
-            // var value = process.memoryUsage().heapUsed / 1000000;
-            const percentageMemUsed = os.freemem() / os.totalmem() * 100.0;
-            return percentageMemUsed;
-        }
-        namespace.addVariable({
-        
-            componentOf: device,
-        
-            nodeId: "s=free_memory", // a string nodeID
-            browseName: "FreeMemory",
-            dataType: "Double",    
-            value: {
-                get: function () {return new opcua.Variant({dataType: opcua.DataType.Double, value: available_memory() });}
-            }
-        });
+        // await server.initialize()
+        await server.start()
+
+        ServerList.push({
+            server_object : server,
+            server_id : id,
+            server_port : parseInt(port)
+        })
+        const endpointUrl = server.endpoints[0].endpointDescriptions()[0].endpointUrl;
+
+        console.log('server exposed at ', endpointUrl)
+
+        console.log('Initiate Server ', id)
+    }catch (err){
+        console.error(err)
     }
-    construct_my_address_space(server);
+    
 }
 
 module.exports = {
     CreateNewServer,
     GetServerList,
     AddVariable,
-    AddObject
+    AddMqttVariable,
+    AddObject,
+    SaveUAConfiguration,
+    RunSavedConfiguration
 }
