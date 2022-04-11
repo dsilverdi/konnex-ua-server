@@ -3,15 +3,13 @@ const opcua = require('node-opcua')
 const mqtt = require('mqtt')
 const util = require('util')
 
-let ServerList = []
+const ServerList = []
 
 async function CreateNewServer(payload) {
     const server = new opcua.OPCUAServer({
         port: payload.port, // the port of the listening socket of the servery
         resourcePath: "/ua/server",
         buildInfo: {
-          productName: payload.productname,
-          buildNumber: payload.buildnumber,
           buildDate: new Date(),
         }
     });
@@ -23,7 +21,9 @@ async function CreateNewServer(payload) {
     ServerList.push({
         server_object : server,
         server_id : payload.id,
-        server_port: payload.port
+        server_port: payload.port,
+        server_name: payload.name,
+        device: []
     })
 
     return server 
@@ -63,6 +63,7 @@ function AddVariable(server, payload){
 }
 
 async function AddMqttVariable(server, payload){
+    console.log(payload)
     const addressSpace = server.engine.addressSpace
     const namespace = addressSpace.getOwnNamespace();
 
@@ -70,16 +71,13 @@ async function AddMqttVariable(server, payload){
 
     const device  = namespace.addFolder(objectsFolder,{ browseName: payload.deviceName});
 
-    var VALUE = 0.1;
+    var VALUE = 0;
 
-    // const config = {
-    //     host : 'broker.emqx.io',
-    //     port : '1883',c826c742-49ca-465e-8a8f-a827ff72d6d6
     (()=>{
         const host = payload.host
         const port = payload.port
         const clientId = `konnex_${Math.random().toString(16).slice(3)}`
-    
+        
         const connectUrl = `mqtt://${host}:${port}`
         
         try{
@@ -103,6 +101,12 @@ async function AddMqttVariable(server, payload){
         
             client.on('message', (topic, payload) => {
                 VALUE = parseFloat(payload.toString())
+                console.log(VALUE)
+                // console.log(payload.toString())
+                // if (payload != null) {
+                //     VALUE = parseFloat(payload.toString())
+                // }
+                
             })
         }catch(err){
             console.log(err)
@@ -110,22 +114,22 @@ async function AddMqttVariable(server, payload){
         
     })()
     
-    class MqttConfig extends opcua.ExtensionObject{
-        constructor(options){
-            super()
-            this.host = options.host
-            this.port = options.port
-            this.topic = options.topic
-        }        
-    }
+    // class MqttConfig extends opcua.ExtensionObject{
+    //     constructor(options){
+    //         super()
+    //         this.host = options.host
+    //         this.port = options.port
+    //         this.topic = options.topic
+    //     }        
+    // }
 
-    // util.inherits(MqttConfig, opcua.ExtensionObject)
+    // // util.inherits(MqttConfig, opcua.ExtensionObject)
 
-    const cfg = new MqttConfig({
-        host: payload.host,
-        port: payload.port,
-        topic: payload.topic
-    })
+    // const cfg = new MqttConfig({
+    //     host: payload.host,
+    //     port: payload.port,
+    //     topic: payload.topic
+    // })
 
     // mqtt.AddMqttVariable(config, VALUE)
     const mqttConfig = namespace.addVariable({
@@ -156,10 +160,10 @@ async function AddMqttVariable(server, payload){
         value: new opcua.Variant({dataType: opcua.DataType.String, value: payload.topic}),
     })
 
-    const node  = namespace.addVariable({
+   namespace.addVariable({
         componentOf: device,
         browseName: payload.browseName,
-        dataType: payload.dataType,
+        dataType: opcua.DataType.Double,
         value: {  get: function () { return new opcua.Variant({dataType: opcua.DataType.Double, value: VALUE }); } }
     })
 

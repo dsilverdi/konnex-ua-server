@@ -1,5 +1,5 @@
 const App = require('./src/app')
-const ua = require('./src/ua/cfgstore')
+const ua = require('./src/ua/config')
 
 server = new App()
 
@@ -9,7 +9,7 @@ server.init(process.env.PORT || 9000, () => {
     // redis.init()
     // mqtt.init()
     (async function(){
-        ua.RunSavedConfiguration()
+        ua.ReadConfiguration()
     })()
 })
 

@@ -8,7 +8,7 @@ const CreateUAServer = async (req, res) => {
     const payload = {
         id: uuidv4(),
         port: req.body.port,
-        productname: req.body.productname,
+        name: req.body.name,
         buildnumber: req.body.buildnumber
     }
 
@@ -16,7 +16,6 @@ const CreateUAServer = async (req, res) => {
         wrapper.send(res, 'Payload cannot be empty', 'Error', 400)
     }
     
-    // ua.CreateNewServer(payload)
     try{
         server = await ua.CreateNewServer(payload)
         
@@ -29,16 +28,27 @@ const CreateUAServer = async (req, res) => {
     }
 }
 
-const GetServerList = async (_, res) => {
+const GetServerList = async (req, res) => {
     serverlist = ua.GetServerList()
     data = []
 
     serverlist.map((server)=>{
         data.push({
           endpoint:  server.server_object.endpoints[0].endpointDescriptions()[0].endpointUrl,
-          server_id: server.server_id
+          server_id: server.server_id,
+          server_name: server.server_name,
+          device: server.device
         })
     })
+
+    const id = req.query.id
+    if (id){
+        serverobj = data.find(obj => {
+            return obj.server_id === id
+        })
+
+        wrapper.send(res, serverobj, 'Your Request Has Been Processed ', 201)
+    }
 
     try{   
         wrapper.send(res, data, 'Your Request Has Been Processed ', 201)
@@ -64,7 +74,6 @@ const handleAddMqttVarible = async (req, res) => {
         deviceName : req.body.device_name, 
         browseName : req.body.browse_name,
         dataType : req.body.data_type,
-        componentOf : req.body.component_of,
         host: req.body.host,
         port: req.body.port,
         topic: req.body.topic
@@ -79,6 +88,14 @@ const handleAddMqttVarible = async (req, res) => {
             return obj.server_id === payload.serverID
         })
 
+        serverobj.device.push({
+            type: 'mqtt',
+            device_name: payload.deviceName,
+            browse_name: payload.browseName,
+            host: payload.host,
+            port: payload.port,
+            topic: payload.topic
+        })
 
 
         await ua.AddMqttVariable(serverobj.server_object, payload)
