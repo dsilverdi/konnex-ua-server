@@ -20,9 +20,11 @@ class Server {
 
     this.app.post('/uaserver', api.CreateUAServer)
     this.app.get('/uaserver', api.GetServerList)
+    this.app.delete('/uaserver', api.DeleteServer)
     
     this.app.post('/uaserver/object', api.AddUAObject)
     this.app.post('/uaserver/variable', api.AddUAVariable)
+    this.app.delete('/uaserver/variable', api.DeleteUAVariable)
   }
 
   init (port, next) {

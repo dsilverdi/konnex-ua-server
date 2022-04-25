@@ -48,6 +48,12 @@ function GetServerList(){
     return ServerList
 }
 
+function UpdateServerList(newServer){
+    ServerList.length = 0;                  // Clear contents
+    ServerList.push.apply(ServerList, newServer);  // Append new contents
+
+}
+
 function AddVariable(server, payload){
     const addressSpace = server.engine.addressSpace;
     const namespace = addressSpace.getOwnNamespace();
@@ -63,7 +69,6 @@ function AddVariable(server, payload){
 }
 
 async function AddMqttVariable(server, payload){
-    console.log(payload)
     const addressSpace = server.engine.addressSpace
     const namespace = addressSpace.getOwnNamespace();
 
@@ -168,6 +173,15 @@ async function AddMqttVariable(server, payload){
     })
 
     // console.log(node.nodeId.toString()) <-- to get node id
+    return device.nodeId.toString()
+}
+
+async function DeleteVariable(server, nodeID){
+    const addressSpace = server.engine.addressSpace;
+    const namespace = addressSpace.getOwnNamespace();
+    
+    const node = await namespace.findNode(nodeID)
+    await namespace.deleteNode(node)  
 }
 
 function AddObject(server, payload) {
@@ -183,7 +197,9 @@ function AddObject(server, payload) {
 module.exports = {
     CreateNewServer,
     GetServerList,
+    UpdateServerList,
     AddVariable,
     AddMqttVariable,
+    DeleteVariable,
     AddObject
 }

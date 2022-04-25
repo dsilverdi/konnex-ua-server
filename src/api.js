@@ -9,7 +9,6 @@ const CreateUAServer = async (req, res) => {
         id: uuidv4(),
         port: req.body.port,
         name: req.body.name,
-        buildnumber: req.body.buildnumber
     }
 
     if (_.isEmpty(payload, true)) {
@@ -57,6 +56,30 @@ const GetServerList = async (req, res) => {
     }
 }
 
+const DeleteServer = async (req, res) => {
+    const id = req.query.id
+    if (id){
+        try{
+            data = ua.GetServerList()
+            serverobj = data.find(obj => {
+                return obj.server_id === id
+            })
+
+            await serverobj.server_object.shutdown() // Shutdown Server
+
+            ua.UpdateServerList(
+                data.filter(obj=>obj.server_id !== id)
+            )
+            
+            wrapper.send(res, 'success', 'Your Request Has Been Processed ', 201)
+        }catch(err){
+            wrapper.send(res, err, 'Error', 500)
+        }
+    }else{
+        wrapper.send(res, 'Empty Query ID', 'Error', 400)
+    }
+}
+
 const AddUAVariable = async (req, res) => {
     const type = req.query.type
 
@@ -86,26 +109,24 @@ const handleAddMqttVarible = async (req, res) => {
         serverls = ua.GetServerList()
         serverobj = serverls.find(obj => {
             return obj.server_id === payload.serverID
-        })
+        })       
+
+        const deviceID = await ua.AddMqttVariable(serverobj.server_object, payload)
 
         serverobj.device.push({
             type: 'mqtt',
+            node_id: deviceID,
             device_name: payload.deviceName,
             browse_name: payload.browseName,
             host: payload.host,
             port: payload.port,
             topic: payload.topic
         })
-
-
-        await ua.AddMqttVariable(serverobj.server_object, payload)
         
         wrapper.send(res, 'mqtt data here', 'Your Request Has Been Processed ', 201)
     }catch (err){
         wrapper.send(res, err, 'Error', 500)
     }
-
-    
 }
 
 const handleAddVariable = async (req, res) => {
@@ -137,6 +158,34 @@ const handleAddVariable = async (req, res) => {
     }
 }
 
+const DeleteUAVariable = async (req, res) => {
+    const payload = {
+        node_id : req.query.node,
+        server_id : req.query.id
+    }
+
+    if (_.isEmpty(payload, true)) {
+        wrapper.send(res, 'Query cannot be empty', 'Error', 400)
+    }
+
+    try{
+        serverls = ua.GetServerList()
+        serverobj = serverls.find(obj => {
+            return obj.server_id === payload.server_id
+        }) 
+
+        await ua.DeleteVariable(serverobj.server_object, payload.node_id)
+
+        serverobj.device = serverobj.device.filter(obj => obj.node_id !== payload.node_id)
+
+        wrapper.send(res, 'success delete node', 'Your Request Has Been Processed ', 201)
+    }catch (err) {
+        console.log(err)
+        wrapper.send(res, err, 'Error', 500)
+    }
+
+
+}
 const AddUAObject = async (req, res) => {
     const payload = {
         serverID : req.body.server_id,
@@ -166,6 +215,8 @@ const AddUAObject = async (req, res) => {
 module.exports = {
     CreateUAServer,
     GetServerList,
+    DeleteServer,
     AddUAVariable,
+    DeleteUAVariable,
     AddUAObject
 }

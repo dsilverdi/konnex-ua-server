@@ -5,13 +5,12 @@ const mqtt = require('mqtt')
 
 function SaveUAConfiguration(){
     ServerList = handler.GetServerList()
-    
     const data = {
         table: []
     }
 
     ServerList.map((server)=>{
-    
+        console.log(server.device)
         data.table.push({
             server_id: server.server_id,
             server_name: server.server_name,
@@ -36,7 +35,6 @@ function ReadConfiguration(){
 
     obj.table.map(async (data)=>{
         // session = ua.CreateSession(data.url)
-        console.log(data)
         const payload = {
             id: data.server_id,
             port: data.server_port,
@@ -60,16 +58,17 @@ function ReadConfiguration(){
                     topic: dev.topic
                 }
 
+                const deviceID = await handler.AddMqttVariable(serverobj.server_object, mqttCfg)
+
                 serverobj.device.push({
                     type: 'mqtt',
+                    node_id: deviceID,
                     device_name: mqttCfg.deviceName,
                     browse_name: mqttCfg.browseName,
                     host: mqttCfg.host,
                     port: mqttCfg.port,
                     topic: mqttCfg.topic
                 })
-
-                await handler.AddMqttVariable(serverobj.server_object, mqttCfg)
             }
         })
     })
