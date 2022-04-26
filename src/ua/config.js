@@ -10,7 +10,6 @@ function SaveUAConfiguration(){
     }
 
     ServerList.map((server)=>{
-        console.log(server.device)
         data.table.push({
             server_id: server.server_id,
             server_name: server.server_name,
@@ -53,6 +52,7 @@ function ReadConfiguration(){
                 const mqttCfg = {
                     host: dev.host,
                     port: dev.port,
+                    dataType: dev.data_type,
                     deviceName: dev.device_name,
                     browseName: dev.browse_name,
                     topic: dev.topic
@@ -63,6 +63,7 @@ function ReadConfiguration(){
                 serverobj.device.push({
                     type: 'mqtt',
                     node_id: deviceID,
+                    data_type: mqttCfg.dataType,
                     device_name: mqttCfg.deviceName,
                     browse_name: mqttCfg.browseName,
                     host: mqttCfg.host,

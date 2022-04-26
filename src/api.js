@@ -116,6 +116,7 @@ const handleAddMqttVarible = async (req, res) => {
         serverobj.device.push({
             type: 'mqtt',
             node_id: deviceID,
+            data_type: payload.dataType,
             device_name: payload.deviceName,
             browse_name: payload.browseName,
             host: payload.host,

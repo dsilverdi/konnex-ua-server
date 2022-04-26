@@ -76,7 +76,7 @@ async function AddMqttVariable(server, payload){
 
     const device  = namespace.addFolder(objectsFolder,{ browseName: payload.deviceName});
 
-    var VALUE = 0;
+    var VALUE
 
     (()=>{
         const host = payload.host
@@ -104,9 +104,14 @@ async function AddMqttVariable(server, payload){
                 })        
             })
         
-            client.on('message', (topic, payload) => {
-                VALUE = parseFloat(payload.toString())
-                console.log(VALUE)
+            client.on('message', (topic, message) => {
+                
+                if (payload.dataType == "Double"){
+                    VALUE = parseFloat(message.toString())
+                }else{
+                    VALUE = message.toString()
+                }
+            
                 // console.log(payload.toString())
                 // if (payload != null) {
                 //     VALUE = parseFloat(payload.toString())
@@ -119,23 +124,6 @@ async function AddMqttVariable(server, payload){
         
     })()
     
-    // class MqttConfig extends opcua.ExtensionObject{
-    //     constructor(options){
-    //         super()
-    //         this.host = options.host
-    //         this.port = options.port
-    //         this.topic = options.topic
-    //     }        
-    // }
-
-    // // util.inherits(MqttConfig, opcua.ExtensionObject)
-
-    // const cfg = new MqttConfig({
-    //     host: payload.host,
-    //     port: payload.port,
-    //     topic: payload.topic
-    // })
-
     // mqtt.AddMqttVariable(config, VALUE)
     const mqttConfig = namespace.addVariable({
         componentOf: device,
@@ -165,12 +153,42 @@ async function AddMqttVariable(server, payload){
         value: new opcua.Variant({dataType: opcua.DataType.String, value: payload.topic}),
     })
 
-   namespace.addVariable({
-        componentOf: device,
-        browseName: payload.browseName,
-        dataType: opcua.DataType.Double,
-        value: {  get: function () { return new opcua.Variant({dataType: opcua.DataType.Double, value: VALUE }); } }
-    })
+    // var varDataType
+    try{
+        if (payload.dataType === "Double" || payload.dataType === "double") {
+            console.log("run this double")
+            namespace.addVariable({
+                componentOf: device,
+                browseName: payload.browseName,
+                dataType: opcua.DataType.Double,
+                value: {  get: function () { return new opcua.Variant({dataType: opcua.DataType.Double, value: VALUE }); } }
+            })          
+           
+        }else{
+            console.log("run this string")
+            namespace.addVariable({
+                componentOf: device,
+                browseName: payload.browseName,
+                dataType: opcua.DataType.String,
+                value: {  get: function () { return new opcua.Variant({dataType: opcua.DataType.String, value: VALUE }); } }
+            })
+        }
+    }catch(err){
+        console.log(err)
+    }
+    
+
+    // try{
+    //     namespace.addVariable({
+    //         componentOf: device,
+    //         browseName: payload.browseName,
+    //         dataType: varDataType,
+    //         value: {  get: function () { return new opcua.Variant({dataType: varDataType, value: VALUE }); } }
+    //     })
+    // }catch(err){
+    //     console.log(err)
+    // }
+    
 
     // console.log(node.nodeId.toString()) <-- to get node id
     return device.nodeId.toString()
