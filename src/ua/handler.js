@@ -35,11 +35,11 @@ function construct_address(server) {
     const objectsFolder = addressSpace.rootFolder.objects;
 
     namespace.addFolder(objectsFolder,
-        { browseName: 'mqttConnect'}
+        { browseName: 'MQTT'}
     );
 
     namespace.addFolder(objectsFolder,
-        { browseName: 'modbusConnect'}
+        { browseName: 'MODBUS'}
     );
     
 }
@@ -127,7 +127,7 @@ async function AddMqttVariable(server, payload){
     // mqtt.AddMqttVariable(config, VALUE)
     const mqttConfig = namespace.addVariable({
         componentOf: device,
-        browseName: 'MqttConfiguration',
+        browseName: 'configuration',
         dataType: opcua.DataType.Double,
         // value: new opcua.Variant({dataType: opcua.DataType.Double, value: 32.2}),
     })
